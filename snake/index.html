@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>柯宝宝家的贪吃蛇</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            font-size: 12px;
+        }
+        
+        body {
+            --snake-width: 8px;
+        }
+        
+        .snake-box {
+            width: 250px;
+            height: 300px;
+            border: 1px solid rgb(214, 157, 255);
+            margin: 10px auto;
+            position: relative;
+        }
+        
+        .snake-item {
+            position: absolute;
+            width: var(--snake-width);
+            height: var(--snake-width);
+            border: 1px solid rgba(235, 235, 235, 0.774);
+            background: rgb(194, 130, 255);
+        }
+        
+        .snake-head {
+            background-color: indigo;
+        }
+        
+        .snake-item-food {
+            position: absolute;
+            width: var(--snake-width);
+            height: var(--snake-width);
+            border: 1px solid rgba(235, 235, 235, 0.774);
+            background: rgb(148 148 148);
+            left: 20px;
+            top: 10px;
+            z-index: 9;
+        }
+        
+        .btn-group {
+            position: relative;
+            width: 170px;
+            margin: 0 auto;
+        }
+        
+        .btn-group .btn {
+            position: absolute;
+            background: #fff;
+            box-shadow: 0 0 4px indigo;
+            color: rgb(149, 0, 255);
+            width: 40px;
+            height: 40px;
+            line-height: 40px;
+            text-align: center;
+            border-radius: 50%;
+            font-size: 12px;
+        }
+        
+        .btn-group .btn:active {
+            box-shadow: 0 0 4px indigo inset;
+        }
+        
+        .btn-group #up {
+            left: 40px;
+            top: 0;
+        }
+        
+        .btn-group #right {
+            left: 80px;
+            top: 40px;
+        }
+        
+        .btn-group #down {
+            left: 40px;
+            top: 80px;
+        }
+        
+        .btn-group #left {
+            left: 0;
+            top: 40px;
+        }
+        
+        .btn-group #start {
+            left: -70px;
+            top: 40px;
+        }
+        
+        .btn-group #reset {
+            left: 150px;
+            top: 40px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="snake-wrap">
+        <div id="snakeBox" class="snake-box">
+            <div id="snake" class="snake">
+                <div class="snake-item"></div>
+                <div class="snake-item"></div>
+                <div class="snake-item snake-head"></div>
+                <div class="snake-item-food"></div>
+            </div>
+        </div>
+        <div class="btn-group">
+            <div id="up" class="btn">上</div>
+            <div id="right" class="btn">右</div>
+            <div id="down" class="btn">下</div>
+            <div id="left" class="btn">左</div>
+            <div id="start" class="btn">开始</div>
+            <div id="reset" class="btn">重置</div>
+        </div>
+    </div>
+
+
+    <script>
+        let snakeBox = document.getElementById('snakeBox')
+        let snake = document.getElementById('snake')
+        let btns = document.getElementsByClassName('btn')
+        let startBtn = document.getElementById('start')
+        let resetBtn = document.getElementById('reset')
+        let snakeItemSize = document.getElementsByClassName('snake-item')[0].offsetWidth
+        console.log(snakeItemSize)
+
+        let maxWidth = parseFloat(window.getComputedStyle(snakeBox).width) - snakeItemSize
+        let maxHeight = parseFloat(window.getComputedStyle(snakeBox).height) - snakeItemSize
+
+        let foodIem = null
+        let foodPos = null
+
+        let timer = null
+
+        let isStart = null
+
+
+        let movePos = null
+            // let movePos = 'left'
+            // let movePos = 'up'
+            // let movePos = 'down'
+
+        let posArr = null
+
+
+
+
+        init()
+
+        // 按钮事件绑定
+        for (let i = 0; i < btns.length; i++) {
+            btns[i].onclick = function() {
+                movePos = this.getAttribute('id')
+                if (isStart) {
+                    return
+                }
+                start()
+            }
+        }
+
+
+        //
+
+        // 判断移动：
+        function newStep(plus) {
+            let step = snakeItemSize
+            if (plus) {
+                step = 10
+            }
+            let posArrLast = posArr.length - 1
+            let newPos = {}
+
+
+            switch (movePos) {
+                case 'right':
+                    newPos = {
+                        x: posArr[posArrLast].x + step,
+                        y: posArr[posArrLast].y + 0
+                    };
+                    break;
+                case 'left':
+                    newPos = {
+                        x: posArr[posArrLast].x - step,
+                        y: posArr[posArrLast].y + 0
+                    }
+                    break;
+                case 'down':
+                    newPos = {
+                        x: posArr[posArrLast].x + 0,
+                        y: posArr[posArrLast].y + step
+                    }
+                    break;
+                case 'up':
+                    newPos = {
+                        x: posArr[posArrLast].x + 0,
+                        y: posArr[posArrLast].y - step
+                    }
+                    break;
+                default:
+                    newPos = {
+                        x: posArr[posArrLast].x + step,
+                        y: posArr[posArrLast].y + 0
+                    };
+            }
+            return newPos
+        }
+
+        // 移动
+        function move() {
+
+            if (checkEatSelf()) {
+                return
+            }
+
+            let newPos = newStep()
+            let plusPos = newStep(true)
+
+            // 判断坐标是否和食物相等：
+            if (foodPos.x === newPos.x && foodPos.y === newPos.y) {
+
+                let snakeItems = document.getElementsByClassName('snake-item')
+                let lastSnakeItem = snakeItems[snakeItems.length - 1]
+                lastSnakeItem.classList.remove('snake-head')
+
+                // 将食物转换为身体
+                foodIem.classList.remove('snake-item-food')
+                foodIem.classList.add('snake-item')
+
+                // 设置头部：
+                foodIem.classList.add('snake-head')
+
+                // 创建新的食物
+                let newFood = document.createElement('div')
+                newFood.classList.add('snake-item-food')
+
+                // 随机设置食物位置：
+                newFood.style.left = randomNumPlus(maxWidth, 0, snakeItemSize) + 'px'
+                newFood.style.top = randomNumPlus(maxHeight, 0, snakeItemSize) + 'px'
+
+                // 需要重新定义食物元素和食物位置：
+                foodIem = snake.appendChild(newFood)
+                foodPos = {
+                    x: parseFloat(window.getComputedStyle(foodIem).left),
+                    y: parseFloat(window.getComputedStyle(foodIem).top)
+                }
+            } else {
+
+                // 如果有新的食物，就不删除尾部，如果没有食物，就删除尾部
+                posArr.shift()
+
+            }
+
+            posArr.push(newStep())
+
+            if (checkDie()) {
+                return
+            }
+            setPos()
+        }
+
+        // 随机5的倍数：
+        function randomNumPlus(max, min, plus) {
+            max = max || 1
+            min = min || 0
+            plus = plus || 1
+
+            return Math.floor(Math.random() * (max - min) / plus) * plus
+        }
+
+
+        // 设置蛇的位置
+        function setPos() {
+
+            let snakeItem = document.getElementsByClassName('snake-item')
+            for (let i = 0; i < snakeItem.length; i++) {
+                snakeItem[i].style.left = posArr[i].x + 'px'
+                snakeItem[i].style.top = posArr[i].y + 'px'
+            }
+        }
+
+
+        // 判断死亡
+        function checkDie() {
+            let lastItem = posArr[posArr.length - 1]
+
+            if (lastItem.x > maxWidth || lastItem.y > maxHeight || lastItem.x < 0 || lastItem.y < 0) {
+                console.log(1)
+                clearInterval(timer)
+                timer = null
+                startBtn.innerHTML = "重来"
+                alert('游戏结束！')
+                return true
+            }
+        }
+
+        function checkEatSelf() {
+            let lastItem = posArr[posArr.length - 1]
+
+            for (let i = 0; i < posArr.length - 1; i++) {
+
+                if (lastItem.x === posArr[i].x && lastItem.y === posArr[i].y) {
+                    clearInterval(timer)
+                    timer = null
+                    startBtn.innerHTML = "重来"
+                    alert('游戏结束！')
+                    return true
+                }
+            }
+        }
+
+        // 初始化
+        function init() {
+            foodIem = document.getElementsByClassName('snake-item-food')[0]
+            foodPos = {
+                x: parseFloat(window.getComputedStyle(foodIem).left),
+                y: parseFloat(window.getComputedStyle(foodIem).top)
+            }
+            clearInterval(timer)
+            timer = null
+
+            movePos = 'right'
+                // let movePos = 'left'
+                // let movePos = 'up'
+                // let movePos = 'down'
+
+            posArr = [{
+                x: 0,
+                y: 0
+            }, {
+                x: snakeItemSize,
+                y: 0
+            }, {
+                x: snakeItemSize * 2,
+                y: 0
+            }, ]
+
+            isStart = false
+
+            setPos()
+        }
+
+        // 开始
+        function start() {
+            isStart = true
+            if (timer) {
+                clearInterval(timer)
+                timer = null
+                startBtn.innerHTML = '继续'
+            } else {
+                startBtn.innerHTML = '暂停'
+                timer = setInterval(() => {
+                    move()
+                }, 300);
+            }
+
+        }
+
+        function restart() {
+            clearInterval(timer)
+            timer = null
+            startBtn.innerHTML = '开始'
+            snake.innerHTML = `
+                <div class="snake-item"></div>
+                <div class="snake-item"></div>
+                <div class="snake-item snake-head"></div>
+                <div class="snake-item-food"></div>
+            `
+            init()
+        }
+
+        startBtn.onclick = function() {
+            if (this.innerHTML === '重来') {
+                restart()
+            } else {
+                start()
+            }
+        }
+
+        resetBtn.onclick = function() {
+            restart()
+        }
+    </script>
+</body>
+
+</html>
